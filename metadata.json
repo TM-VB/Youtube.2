@@ -1,0 +1,6 @@
+{
+  "name": "Download Videos",
+  "description": "Standalone Android video downloader powered by yt-dlp and FFmpeg with time cutting, format selection, and background download management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
