@@ -1,8 +1,18 @@
 <resources>
     <string name="app_name">Download Videos</string>
+    <string name="tab_home">Home</string>
     <string name="tab_downloader">Downloader</string>
     <string name="tab_downloads">Downloads</string>
+    <string name="tab_settings">Settings</string>
     <string name="header_title">Download Videos</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_engine_section">Engines &amp; Runtime</string>
+    <string name="settings_python_runtime">Embedded Python 3.11 Runtime</string>
+    <string name="settings_ytdlp_engine">yt-dlp Engine</string>
+    <string name="settings_ffmpeg_binary">FFmpeg Media Processor</string>
+    <string name="settings_storage_section">Storage &amp; Output</string>
+    <string name="settings_storage_location">Downloads/DownloadVideos</string>
+    <string name="settings_abi_section">Device Architecture (ABI)</string>
     <string name="url_input_label">Paste video URL</string>
     <string name="btn_analyze">Analyze</string>
     <string name="btn_paste">Paste</string>
@@ -30,7 +40,9 @@
     <string name="btn_delete">Delete</string>
     <string name="btn_update_ytdlp">Update Engine</string>
     <string name="status_queued">Queued</string>
+    <string name="status_preparing">Preparing...</string>
     <string name="status_downloading">Downloading...</string>
+    <string name="status_processing_ffmpeg">Processing (FFmpeg)...</string>
     <string name="status_completed">Completed</string>
     <string name="status_failed">Failed</string>
     <string name="status_cancelled">Cancelled</string>
@@ -46,4 +58,25 @@
     <string name="engine_status">Engine Status</string>
     <string name="ytdlp_ready">yt-dlp Engine Ready</string>
     <string name="ffmpeg_ready">FFmpeg Binary Ready</string>
+    <string name="analyzing_video">Analyzing video...</string>
+    <string name="analyzing_video_desc">Extracting video metadata and available formats via yt-dlp...</string>
+    <string name="video_details_title">Video Details</string>
+    <string name="btn_new_search">Change URL</string>
+    <string name="tab_video_and_audio">Video + Audio</string>
+    <string name="tab_video_only">Video Only</string>
+    <string name="tab_audio_only">Audio Only</string>
+    <string name="tab_all_formats">All Formats</string>
+    <string name="manual_format_title">Advanced: Enter Format ID manually</string>
+    <string name="manual_format_hint">e.g. 137, 22, bestvideo+bestaudio</string>
+    <string name="btn_apply">Apply</string>
+    <string name="selected_format_label">Selected Format</string>
+    <string name="error_details_title">Technical Details</string>
+    <string name="download_settings_title">Download Settings</string>
+    <string name="mode_full_video">Download Full Video</string>
+    <string name="mode_trim_cut">Trim / Cut Video Section</string>
+    <string name="fast_cut_explanation">Cuts quickly at nearest keyframe with minimal processing and no quality loss.</string>
+    <string name="precise_cut_explanation">Frame-accurate cutting using FFmpeg re-encoding at cut points. Takes slightly longer.</string>
+    <string name="btn_start_download">Download Now</string>
+    <string name="btn_share">Share</string>
+    <string name="insufficient_storage">Insufficient storage space on device.</string>
 </resources>

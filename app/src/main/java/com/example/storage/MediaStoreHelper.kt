@@ -133,4 +133,48 @@ object MediaStoreHelper {
             e.printStackTrace()
         }
     }
+
+    /**
+     * Shares the downloaded media file with other apps via system share sheet
+     */
+    fun shareFile(context: Context, filePath: String?, contentUriStr: String?) {
+        try {
+            val uri: Uri = when {
+                !contentUriStr.isNullOrBlank() -> Uri.parse(contentUriStr)
+                !filePath.isNullOrBlank() -> {
+                    val file = File(filePath)
+                    if (file.exists()) {
+                        FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.provider",
+                            file
+                        )
+                    } else return
+                }
+                else -> return
+            }
+
+            val mimeType = getMimeType(filePath ?: "video.mp4")
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Share video").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun hasEnoughStorageSpace(context: Context, requiredBytes: Long = 50 * 1024 * 1024L): Boolean {
+        return try {
+            val stat = android.os.StatFs(context.cacheDir.path)
+            val available = stat.availableBlocksLong * stat.blockSizeLong
+            available >= requiredBytes
+        } catch (_: Exception) {
+            true
+        }
+    }
 }

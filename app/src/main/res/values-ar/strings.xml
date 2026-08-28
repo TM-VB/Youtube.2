@@ -1,8 +1,18 @@
 <resources>
     <string name="app_name">تنزيل الفيديوهات</string>
+    <string name="tab_home">الرئيسية</string>
     <string name="tab_downloader">الرئيسية</string>
     <string name="tab_downloads">التنزيلات</string>
+    <string name="tab_settings">الإعدادات</string>
     <string name="header_title">تنزيل الفيديوهات</string>
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_engine_section">المحركات وبيئة التشغيل</string>
+    <string name="settings_python_runtime">بيئة بايثون 3.11 المدمجة</string>
+    <string name="settings_ytdlp_engine">محرك yt-dlp</string>
+    <string name="settings_ffmpeg_binary">معالج وسائط FFmpeg</string>
+    <string name="settings_storage_section">التخزين ومجلد الحفظ</string>
+    <string name="settings_storage_location">Downloads/DownloadVideos</string>
+    <string name="settings_abi_section">معمارية الجهاز (ABI)</string>
     <string name="url_input_label">الصق رابط الفيديو</string>
     <string name="btn_analyze">تحليل</string>
     <string name="btn_paste">لصق</string>

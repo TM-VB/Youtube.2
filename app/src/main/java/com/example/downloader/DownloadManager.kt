@@ -4,9 +4,14 @@ import android.content.Context
 import com.example.data.local.AppDatabase
 import com.example.data.local.DownloadTaskEntity
 import com.example.data.repository.DownloadRepository
+import com.example.domain.model.CutMode
+import com.example.domain.model.DownloadRequest
 import com.example.domain.model.DownloadStatus
 import com.example.domain.model.TimeRange
+import com.example.downloader.engine.YtDlpDownloadEngine
+import com.example.downloader.ffmpeg.FFmpegManager
 import com.example.service.DownloadForegroundService
+import com.example.storage.MediaStoreHelper
 import com.example.ytdlp.YtDlpEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,8 +26,43 @@ class DownloadManager private constructor(private val context: Context) {
     private val repository = DownloadRepository(AppDatabase.getInstance(context).downloadTaskDao())
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeJobs = ConcurrentHashMap<String, Job>()
+    private val downloadEngine = YtDlpDownloadEngine(context, FFmpegManager(context))
 
     fun hasActiveDownloads(): Boolean = activeJobs.isNotEmpty()
+
+    fun startDownload(request: DownloadRequest): String {
+        val taskId = request.id
+
+        val entity = DownloadTaskEntity(
+            id = taskId,
+            url = request.url,
+            title = request.title,
+            thumbnailUrl = request.thumbnailUrl,
+            formatId = request.formatSelector,
+            formatDescription = request.formatDescription,
+            startTime = request.startTime,
+            endTime = request.endTime,
+            cutMode = request.cutMode.id,
+            status = DownloadStatus.QUEUED,
+            progress = 0f
+        )
+
+        val timeRange = if (request.hasTimeTrim) {
+            TimeRange(
+                startTime = request.startTime!!,
+                endTime = request.endTime!!,
+                cutMode = request.cutMode
+            )
+        } else null
+
+        val job = scope.launch {
+            repository.insertTask(entity)
+            executeDownload(taskId, entity, request.isAudioOnly, timeRange)
+        }
+
+        activeJobs[taskId] = job
+        return taskId
+    }
 
     fun startDownload(
         url: String,
@@ -64,7 +104,22 @@ class DownloadManager private constructor(private val context: Context) {
         isAudioOnly: Boolean,
         timeRange: TimeRange?
     ) {
-        // Update to DOWNLOADING
+        // Storage space check
+        if (!MediaStoreHelper.hasEnoughStorageSpace(context)) {
+            val failedTask = task.copy(
+                status = DownloadStatus.FAILED,
+                errorMessage = "Insufficient storage space on device (less than 50MB available)."
+            )
+            repository.updateTask(failedTask)
+            activeJobs.remove(taskId)
+            return
+        }
+
+        // Set to PREPARING
+        val preparingTask = task.copy(status = DownloadStatus.PREPARING)
+        repository.updateTask(preparingTask)
+
+        // Set to DOWNLOADING
         val downloadingTask = task.copy(status = DownloadStatus.DOWNLOADING)
         repository.updateTask(downloadingTask)
         DownloadForegroundService.startOrUpdate(context, taskId, task.title, 0)
@@ -140,12 +195,15 @@ class DownloadManager private constructor(private val context: Context) {
 
     fun cancelDownload(taskId: String) {
         YtDlpEngine.cancel(taskId)
+        downloadEngine.let {
+            scope.launch { it.cancel(taskId) }
+        }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
 
         scope.launch {
             val task = repository.getTaskByIdSync(taskId)
-            if (task != null && task.status == DownloadStatus.DOWNLOADING) {
+            if (task != null && (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.QUEUED || task.status == DownloadStatus.PREPARING)) {
                 repository.updateTask(
                     task.copy(
                         status = DownloadStatus.CANCELLED,
@@ -153,6 +211,7 @@ class DownloadManager private constructor(private val context: Context) {
                         eta = ""
                     )
                 )
+                DownloadForegroundService.stop(context, task.title)
             }
         }
     }
@@ -161,8 +220,9 @@ class DownloadManager private constructor(private val context: Context) {
         scope.launch {
             val task = repository.getTaskByIdSync(taskId) ?: return@launch
             val isAudioOnly = task.formatDescription.contains("Audio", ignoreCase = true)
+            val cutMode = if (task.cutMode.equals("precise", ignoreCase = true)) CutMode.PRECISE_CUT else CutMode.FAST_CUT
             val timeRange = if (!task.startTime.isNullOrBlank() && !task.endTime.isNullOrBlank()) {
-                TimeRange(task.startTime, task.endTime)
+                TimeRange(task.startTime, task.endTime, cutMode)
             } else null
 
             val resetTask = task.copy(

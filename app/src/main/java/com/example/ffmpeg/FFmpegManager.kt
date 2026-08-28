@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Build
 import com.yausername.ffmpeg.FFmpeg
 
+/**
+ * Compatibility singleton providing access to system-wide FFmpeg initialization and device ABI info.
+ */
 object FFmpegManager {
 
     private var isInitialized = false

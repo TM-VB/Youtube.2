@@ -3,13 +3,18 @@ package com.example.ytdlp
 import android.content.Context
 import android.net.Uri
 import com.example.domain.model.CutMode
+import com.example.domain.model.DownloadError
+import com.example.domain.model.FormatInfo
 import com.example.domain.model.TimeRange
+import com.example.domain.model.VideoInfo
 import com.example.domain.model.VideoMetadata
 import com.example.ffmpeg.FFmpegManager
 import com.example.storage.MediaStoreHelper
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLException
 import com.yausername.youtubedl_android.YoutubeDLRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.regex.Pattern
 
@@ -24,7 +29,6 @@ object YtDlpEngine {
 
     private var isInitialized = false
     private val SPEED_PATTERN = Pattern.compile("""(\d+(?:\.\d+)?\s*(?:[kKMGT]?i?[bB])/s)""")
-    private val SIZE_PATTERN = Pattern.compile("""of\s+(?:~)?\s*(\d+(?:\.\d+)?\s*(?:[kKMGT]?i?[bB]))""")
 
     fun init(context: Context): Result<Unit> {
         if (isInitialized) return Result.success(Unit)
@@ -41,7 +45,80 @@ object YtDlpEngine {
     fun isReady(): Boolean = isInitialized
 
     /**
-     * Extracts video metadata and available formats.
+     * Extracts full video metadata and structured formats using embedded yt-dlp.
+     * Guaranteed non-blocking on IO dispatcher with structured error mapping and logging.
+     */
+    suspend fun extractInfo(url: String, processId: String? = null): Result<VideoInfo> = withContext(Dispatchers.IO) {
+        val trimmedUrl = url.trim()
+        val startTime = System.currentTimeMillis()
+
+        if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+            return@withContext Result.failure(
+                DownloadError.InvalidUrl("Please enter a valid video URL", "URL must begin with http:// or https://")
+            )
+        }
+
+        YtDlpLogger.logAnalyzeStarted(trimmedUrl, processId)
+
+        try {
+            val request = YoutubeDLRequest(trimmedUrl).apply {
+                addOption("--no-playlist")
+                addOption("--no-warnings")
+                addOption("--socket-timeout", "20")
+                addOption("--no-check-certificates")
+            }
+
+            val info = YoutubeDL.getInstance().getInfo(request)
+            val title = info.title?.trim().orEmpty().ifEmpty { "Video" }
+            val parsedFormats = FormatParser.parseFormats(info.formats)
+
+            if (parsedFormats.isEmpty()) {
+                val error = DownloadError.NoFormats(
+                    msg = "No downloadable formats were found.",
+                    detail = "yt-dlp returned 0 formats for this resource."
+                )
+                YtDlpLogger.logAnalyzeError(trimmedUrl, error, System.currentTimeMillis() - startTime)
+                return@withContext Result.failure(error)
+            }
+
+            val durationMs = System.currentTimeMillis() - startTime
+            YtDlpLogger.logAnalyzeCompleted(
+                url = trimmedUrl,
+                formatCount = parsedFormats.size,
+                durationMs = durationMs,
+                extractor = info.extractor
+            )
+
+            val videoInfo = VideoInfo(
+                id = info.id.orEmpty(),
+                title = title,
+                uploader = info.uploader,
+                channel = info.uploaderId ?: info.uploader,
+                duration = if (info.duration > 0) info.duration.toLong() else null,
+                thumbnail = info.thumbnail,
+                webpageUrl = info.webpageUrl ?: trimmedUrl,
+                description = info.description,
+                extractor = info.extractor,
+                availability = "available",
+                formats = parsedFormats
+            )
+            Result.success(videoInfo)
+        } catch (e: Throwable) {
+            val durationMs = System.currentTimeMillis() - startTime
+            YtDlpLogger.logAnalyzeError(trimmedUrl, e, durationMs)
+            val domainError = YtDlpErrorMapper.map(e)
+            Result.failure(domainError)
+        }
+    }
+
+    /**
+     * Extracts formats directly for a given URL.
+     */
+    suspend fun getFormats(url: String, processId: String? = null): Result<List<FormatInfo>> =
+        extractInfo(url, processId).map { it.formats }
+
+    /**
+     * Legacy compatibility bridge returning VideoMetadata.
      */
     fun fetchVideoInfo(url: String): Result<VideoMetadata> {
         val trimmedUrl = url.trim()
@@ -67,21 +144,11 @@ object YtDlpEngine {
                 durationSeconds = info.duration,
                 thumbnailUrl = info.thumbnail,
                 webpageUrl = info.webpageUrl ?: trimmedUrl,
-                formats = parsedFormats
+                formats = emptyList()
             )
             Result.success(metadata)
-        } catch (e: YoutubeDLException) {
-            val msg = e.message.orEmpty().lowercase()
-            val friendly = when {
-                msg.contains("private video") -> "This video is private."
-                msg.contains("sign in") -> "This video requires login or authentication."
-                msg.contains("unavailable") || msg.contains("not found") -> "Video is invalid or unavailable."
-                msg.contains("connection") || msg.contains("network") -> "Network error connecting to video server."
-                else -> "Video is invalid or unavailable."
-            }
-            Result.failure(Exception(friendly, e))
         } catch (e: Exception) {
-            Result.failure(Exception("Video is invalid or unavailable.", e))
+            Result.failure(e)
         }
     }
 
@@ -178,6 +245,7 @@ object YtDlpEngine {
 
     fun cancel(processId: String) {
         try {
+            YtDlpLogger.logAnalyzeCancelled("", 0L, processId)
             YoutubeDL.getInstance().destroyProcessById(processId)
         } catch (e: Exception) {
             e.printStackTrace()

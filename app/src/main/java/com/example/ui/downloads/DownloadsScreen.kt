@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -181,7 +182,8 @@ fun DownloadsScreen(
                 onCancel = { viewModel.cancel(task.id) },
                 onRetry = { viewModel.retry(task.id) },
                 onDelete = { viewModel.delete(task.id) },
-                onOpen = { viewModel.openDownloadedFile(context, task) }
+                onOpen = { viewModel.openDownloadedFile(context, task) },
+                onShare = { viewModel.shareDownloadedFile(context, task) }
             )
         }
     }
@@ -193,7 +195,8 @@ private fun DownloadTaskCard(
     onCancel: () -> Unit,
     onRetry: () -> Unit,
     onDelete: () -> Unit,
-    onOpen: () -> Unit
+    onOpen: () -> Unit,
+    onShare: () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -274,25 +277,46 @@ private fun DownloadTaskCard(
                 }
             }
 
-            // Progress Bar & Speed / ETA when downloading
-            if (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.QUEUED) {
+            // Progress Bar & Speed / ETA when active
+            val isActive = task.status == DownloadStatus.DOWNLOADING ||
+                task.status == DownloadStatus.QUEUED ||
+                task.status == DownloadStatus.PREPARING ||
+                task.status == DownloadStatus.PROCESSING_FFMPEG
+
+            if (isActive) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    LinearProgressIndicator(
-                        progress = { task.progress / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    if (task.progress > 0f) {
+                        LinearProgressIndicator(
+                            progress = { task.progress / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        val statusLabel = when (task.status) {
+                            DownloadStatus.PREPARING -> "Preparing engine..."
+                            DownloadStatus.PROCESSING_FFMPEG -> "FFmpeg processing..."
+                            else -> "${task.progress.toInt()}% ${if (task.downloadSpeed.isNotBlank()) "• ${task.downloadSpeed}" else ""}"
+                        }
                         Text(
-                            text = "${task.progress.toInt()}% ${if (task.downloadSpeed.isNotBlank()) "• ${task.downloadSpeed}" else ""}",
+                            text = statusLabel,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
@@ -326,7 +350,7 @@ private fun DownloadTaskCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 when (task.status) {
-                    DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED -> {
+                    DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED, DownloadStatus.PREPARING, DownloadStatus.PROCESSING_FFMPEG -> {
                         OutlinedButton(
                             onClick = onCancel,
                             shape = RoundedCornerShape(8.dp),
@@ -348,7 +372,17 @@ private fun DownloadTaskCard(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(stringResource(id = R.string.btn_open))
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        OutlinedButton(
+                            onClick = onShare,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.testTag("share_video_button")
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(id = R.string.btn_share))
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
                         IconButton(onClick = onDelete, modifier = Modifier.testTag("delete_task_button")) {
                             Icon(
                                 Icons.Default.Delete,

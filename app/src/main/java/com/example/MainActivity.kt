@@ -12,14 +12,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import com.example.ui.MainScreen
-import com.example.ui.downloader.DownloaderViewModel
 import com.example.ui.downloads.DownloadsViewModel
+import com.example.ui.home.HomeViewModel
+import com.example.ui.settings.SettingsViewModel
 import com.example.ui.theme.VideoDownloaderTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val downloaderViewModel: DownloaderViewModel by viewModels()
+    private val homeViewModel: HomeViewModel by viewModels()
     private val downloadsViewModel: DownloadsViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
@@ -36,8 +38,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             VideoDownloaderTheme {
                 MainScreen(
-                    downloaderViewModel = downloaderViewModel,
-                    downloadsViewModel = downloadsViewModel
+                    homeViewModel = homeViewModel,
+                    downloadsViewModel = downloadsViewModel,
+                    settingsViewModel = settingsViewModel
                 )
             }
         }
@@ -55,8 +58,8 @@ class MainActivity : ComponentActivity() {
             if (!sharedText.isNullOrBlank()) {
                 val url = extractUrl(sharedText)
                 if (url.isNotBlank()) {
-                    downloaderViewModel.onUrlChanged(url)
-                    downloaderViewModel.analyzeUrl()
+                    homeViewModel.onUrlChange(url)
+                    homeViewModel.analyzeUrl()
                 }
             }
         }

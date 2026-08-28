@@ -40,7 +40,7 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
         when (filter) {
             DownloadFilter.ALL -> allTasks
             DownloadFilter.ACTIVE -> allTasks.filter {
-                it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED
+                it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED || it.status == DownloadStatus.PREPARING || it.status == DownloadStatus.PROCESSING_FFMPEG
             }
             DownloadFilter.COMPLETED -> allTasks.filter { it.status == DownloadStatus.COMPLETED }
             DownloadFilter.FAILED -> allTasks.filter {
@@ -54,7 +54,7 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
     )
 
     val activeCount: StateFlow<Int> = repository.allTasks.combine(_selectedFilter) { allTasks, _ ->
-        allTasks.count { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED }
+        allTasks.count { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED || it.status == DownloadStatus.PREPARING || it.status == DownloadStatus.PROCESSING_FFMPEG }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -83,5 +83,9 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun openDownloadedFile(context: Context, task: DownloadTaskEntity) {
         MediaStoreHelper.openFile(context, task.filePath, task.contentUri)
+    }
+
+    fun shareDownloadedFile(context: Context, task: DownloadTaskEntity) {
+        MediaStoreHelper.shareFile(context, task.filePath, task.contentUri)
     }
 }

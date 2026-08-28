@@ -54,11 +54,23 @@ fun StatusBadge(status: DownloadStatus, modifier: Modifier = Modifier) {
             Icons.Default.Refresh,
             R.string.status_queued
         )
+        DownloadStatus.PREPARING -> Quadruple(
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer,
+            Icons.Default.Refresh,
+            R.string.status_preparing
+        )
         DownloadStatus.DOWNLOADING -> Quadruple(
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer,
             Icons.Default.Refresh,
             R.string.status_downloading
+        )
+        DownloadStatus.PROCESSING_FFMPEG -> Quadruple(
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
+            Icons.Default.Refresh,
+            R.string.status_processing_ffmpeg
         )
         DownloadStatus.COMPLETED -> Quadruple(
             SuccessGreen.copy(alpha = 0.15f),
@@ -77,6 +89,12 @@ fun StatusBadge(status: DownloadStatus, modifier: Modifier = Modifier) {
             WarningAmber,
             Icons.Default.Close,
             R.string.status_cancelled
+        )
+        else -> Quadruple(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            Icons.Default.Refresh,
+            R.string.status_queued
         )
     }
 
